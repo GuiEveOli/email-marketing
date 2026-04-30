@@ -2,35 +2,85 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Buscador de Imagem</title>
+    <title>Buscador de Imagens em Lote</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        textarea { width: 100%; max-width: 600px; height: 150px; margin-bottom: 10px; padding: 10px; }
+        .card { border: 1px solid #ccc; padding: 10px; margin-top: 10px; display: flex; align-items: center; gap: 15px; }
+        .card img { max-width: 100px; max-height: 100px; border-radius: 5px; }
+        .card a { font-size: 12px; color: blue; word-break: break-all; }
+        .erro { color: red; font-weight: bold; }
+    </style>
 </head>
 <body>
 
-    <h1>Pegar imagem do Produto</h1>
-    <input type="text" id="inputUrl" placeholder="Cole o link do Super Koch aqui" style="width: 300px;">
-    <button onclick="buscar()">Buscar Imagem</button>
+    <h1>Extrair Múltiplas Imagens</h1>
+    <p>Cole os links do Super Koch abaixo (um por linha):</p>
+    
+    <textarea id="inputUrls" placeholder="https://www.superkoch.com.br/produto-1&#10;https://www.superkoch.com.br/produto-2"></textarea>
+    <br>
+    <button onclick="buscarImagens()">Buscar Todas as Imagens</button>
 
     <div id="resultado" style="margin-top: 20px;"></div>
 
     <script>
-        async function buscar() {
-            const urlProduto = document.getElementById('inputUrl').value;
+        async function buscarImagens() {
+            const rawText = document.getElementById('inputUrls').value;
             const divResultado = document.getElementById('resultado');
             
-            divResultado.innerHTML = "Carregando...";
+            // Pega o texto do textarea, divide pelas quebras de linha e remove espaços em branco vazios
+            const listaDeUrls = rawText.split('\n').map(link => link.trim()).filter(link => link !== '');
+
+            if (listaDeUrls.length === 0) {
+                alert("Por favor, insira pelo menos um link.");
+                return;
+            }
+
+            divResultado.innerHTML = "<p>Processando links... isso pode levar alguns segundos.</p>";
 
             try {
-                // Chama a sua Netlify Function passando a URL
-                const resposta = await fetch(`/.netlify/functions/buscar-imagem?url=${encodeURIComponent(urlProduto)}`);
-                const dados = await resposta.json();
+                // Nova requisição usando POST e enviando a lista em JSON
+                const resposta = await fetch('/.netlify/functions/buscar-imagem', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls: listaDeUrls })
+                });
 
-                if (dados.imagem) {
-                    divResultado.innerHTML = `<img src="${dados.imagem}" alt="Produto" style="max-width: 300px;">`;
-                } else {
-                    divResultado.innerHTML = `<p style="color: red;">${dados.erro}</p>`;
+                const dados = await resposta.json();
+                divResultado.innerHTML = ""; // Limpa a mensagem de "Processando"
+
+                if (dados.erro) {
+                    divResultado.innerHTML = `<p class="erro">${dados.erro}</p>`;
+                    return;
                 }
+
+                // Cria um "card" visual para cada resultado que o servidor devolver
+                dados.resultados.forEach(item => {
+                    if (item.imagem) {
+                        divResultado.innerHTML += `
+                            <div class="card">
+                                <img src="${item.imagem}" alt="Imagem do Produto">
+                                <div>
+                                    <span style="color: green; font-weight: bold;">Encontrado!</span><br>
+                                    <a href="${item.imagem}" target="_blank">Clique para abrir a imagem</a><br>
+                                    <small>Origem: ${item.url}</small>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        divResultado.innerHTML += `
+                            <div class="card">
+                                <div>
+                                    <span class="erro">Falha: ${item.status}</span><br>
+                                    <small>Origem: ${item.url}</small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
             } catch (erro) {
-                divResultado.innerHTML = `<p style="color: red;">Erro de comunicação.</p>`;
+                divResultado.innerHTML = `<p class="erro">Erro de comunicação com o servidor.</p>`;
             }
         }
     </script>
