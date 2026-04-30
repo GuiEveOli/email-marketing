@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Buscador de Imagem</title>
+</head>
+<body>
+
+    <h1>Pegar imagem do Produto</h1>
+    <input type="text" id="inputUrl" placeholder="Cole o link do Super Koch aqui" style="width: 300px;">
+    <button onclick="buscar()">Buscar Imagem</button>
+
+    <div id="resultado" style="margin-top: 20px;"></div>
+
+    <script>
+        async function buscar() {
+            const urlProduto = document.getElementById('inputUrl').value;
+            const divResultado = document.getElementById('resultado');
+            
+            divResultado.innerHTML = "Carregando...";
+
+            try {
+                // Chama a sua Netlify Function passando a URL
+                const resposta = await fetch(`/.netlify/functions/buscar-imagem?url=${encodeURIComponent(urlProduto)}`);
+                const dados = await resposta.json();
+
+                if (dados.imagem) {
+                    divResultado.innerHTML = `<img src="${dados.imagem}" alt="Produto" style="max-width: 300px;">`;
+                } else {
+                    divResultado.innerHTML = `<p style="color: red;">${dados.erro}</p>`;
+                }
+            } catch (erro) {
+                divResultado.innerHTML = `<p style="color: red;">Erro de comunicação.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
